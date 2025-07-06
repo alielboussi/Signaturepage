@@ -18,46 +18,35 @@
       border-radius: 16px;
       padding: 32px 20px 20px 20px;
       box-shadow: 0 8px 40px #0008;
-      position: relative;
     }
     .logo {
       display: block;
-      margin: 0 auto 12px auto;
-      width: 82px;
-      height: 82px;
-      background: none;
+      margin: 0 auto 12px;
+      width: 82px; height: 82px;
     }
     h2 {
       color: #FFD700;
       margin-bottom: 16px;
-      font-size: 1.45em;
-      letter-spacing: 1px;
+      font-size: 1.5em;
       text-align: center;
-      margin-top: 0;
     }
     .info-label {
       color: #ff5555;
       font-weight: bold;
-      font-size: 1em;
-      margin-bottom: 7px;
-      display: inline-block;
+      margin-right: 6px;
     }
     .info-value {
       color: #FFD700;
-      margin-bottom: 13px;
-      display: inline-block;
-      font-size: 1em;
       font-family: monospace;
     }
-    .row { margin-bottom: 12px; }
+    .row { margin-bottom: 10px; }
     #name {
       width: 100%;
-      padding: 11px;
-      font-size: 1em;
+      padding: 10px;
       background: #222;
       border: 1px solid #cc0000;
       color: #FFD700;
-      border-radius: 7px;
+      border-radius: 6px;
       margin-bottom: 12px;
     }
     #signature-pad {
@@ -66,224 +55,146 @@
       background: #fff;
       border: 2px solid #cc0000;
       border-radius: 8px;
-      display: block;
       margin-bottom: 12px;
-      touch-action: none;
-      cursor: crosshair;
     }
     .btn {
-      width: 49%;
+      width: 48%;
       padding: 12px;
       font-size: 1em;
       border: none;
       border-radius: 8px;
       font-weight: bold;
-      letter-spacing: 1px;
-      margin-top: 8px;
-      margin-bottom: 8px;
-      transition: 0.1s;
       cursor: pointer;
     }
-    .btn-red {
-      background: #cc0000;
-      color: #fff;
-    }
-    .btn-gold {
-      background: #FFD700;
-      color: #111;
-    }
-    .btn-grey {
-      background: #444;
-      color: #fff;
-    }
+    .btn-grey { background: #444; color: #fff; }
+    .btn-gold { background: #FFD700; color: #111; }
     #resultMsg {
-      margin-top: 16px;
-      color: #FFD700;
       text-align: center;
       font-weight: bold;
-      min-height: 1.5em;
-    }
-    @media (max-width: 430px) {
-      .container { padding: 14px 2vw 12px 2vw; }
-      .logo { width: 66px; height: 66px; }
+      margin-top: 16px;
+      min-height: 1.2em;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <img src="logo.png" alt="Logo" class="logo">
-    <h2 id="pageTitle">Order Signature</h2>
-    <div class="row">
-      <span class="info-label">Order:</span>
-      <span class="info-value" id="orderId"></span>
-    </div>
-    <div class="row">
-      <span class="info-label">Role:</span>
-      <span class="info-value" id="role"></span>
-    </div>
-    <div class="row">
-      <span class="info-label">Username:</span>
-      <span class="info-value" id="username"></span>
-    </div>
-    <div class="row">
-      <span class="info-label">Date:</span>
-      <span class="info-value" id="date"></span>
-      <span class="info-label" style="margin-left:16px;">Day:</span>
-      <span class="info-value" id="day"></span>
-    </div>
-    <div class="row">
-      <span class="info-label">Time:</span>
-      <span class="info-value" id="time"></span>
-    </div>
+<div class="container">
+  <img src="logo.png" alt="Logo" class="logo">
+  <h2 id="pageTitle">Order Signature</h2>
+  <div class="row"><span class="info-label">Order:</span><span class="info-value" id="orderId"></span></div>
+  <div class="row"><span class="info-label">Role:</span><span class="info-value" id="role"></span></div>
+  <div class="row"><span class="info-label">Username:</span><span class="info-value" id="username"></span></div>
+  <div class="row"><span class="info-label">Date:</span><span class="info-value" id="date"></span>
+               <span class="info-label" style="margin-left:16px;">Day:</span><span class="info-value" id="day"></span></div>
+  <div class="row"><span class="info-label">Time:</span><span class="info-value" id="time"></span></div>
 
-    <input type="text" id="name" placeholder="Enter your name..." autocomplete="off" required>
-    <canvas id="signature-pad"></canvas>
-    <div style="display: flex; justify-content: space-between;">
-      <button class="btn btn-grey" type="button" id="clearBtn">Clear</button>
-      <button class="btn btn-gold" type="button" id="submitBtn">Submit</button>
-    </div>
-    <div id="resultMsg"></div>
+  <input type="text" id="name" placeholder="Enter your name..." required>
+  <canvas id="signature-pad"></canvas>
+
+  <div style="display: flex; justify-content: space-between;">
+    <button class="btn btn-grey" id="clearBtn">Clear</button>
+    <button class="btn btn-gold" id="submitBtn">Submit</button>
   </div>
-  <script>
-    // --- Utils ---
-    function getParam(name) {
-      const url = new URL(window.location.href);
-      return url.searchParams.get(name) || "";
-    }
-    function capitalize(str) {
-      return str.charAt(0).toUpperCase() + str.slice(1);
-    }
-    // --- Info ---
-    const orderId = getParam('orderId');
-    const role = (getParam('role') || 'driver').toLowerCase();
-    const username = getParam('username') || "";
-    // --- Set Info Fields ---
-    document.getElementById('orderId').textContent = orderId;
-    document.getElementById('role').textContent = capitalize(role);
-    document.getElementById('username').textContent = username;
+  <div id="resultMsg"></div>
+</div>
 
-    // --- Set Page Title by Role/Phase ---
-    let title = 'Sign Order';
-    if (role === 'driver') title = "Driver Signature";
-    if (role === 'offloader') title = "Offloader Signature";
-    document.getElementById('pageTitle').textContent = title;
+<script>
+  const getParam = name => new URLSearchParams(location.search).get(name) || "";
 
-    // --- Date/Day/Time ---
-    const now = new Date();
-    const pad = n => n < 10 ? '0'+n : n;
-    document.getElementById('date').textContent =
-      pad(now.getDate()) + "/" + pad(now.getMonth()+1) + "/" + now.getFullYear();
-    document.getElementById('day').textContent =
-      now.toLocaleString('en-US', { weekday: 'long' });
-    document.getElementById('time').textContent =
-      pad(now.getHours()) + ":" + pad(now.getMinutes()) + ":" + pad(now.getSeconds());
+  const orderId = getParam("orderId");
+  const role = getParam("role") || "driver";
+  const username = getParam("username") || "";
 
-    // --- Signature Pad Logic ---
-    const canvas = document.getElementById('signature-pad');
-    const ctx = canvas.getContext('2d');
-    let drawing = false, points = [];
-    function resizeCanvas() {
-      const dpr = window.devicePixelRatio || 1;
-      canvas.width = canvas.offsetWidth * dpr;
-      canvas.height = canvas.offsetHeight * dpr;
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.scale(dpr, dpr);
-      redraw();
-    }
-    function redraw() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.strokeStyle = "#cc0000";
-      ctx.lineWidth = 2.5;
-      ctx.lineCap = "round";
-      for (let i = 1; i < points.length; i++) {
-        if (points[i-1] && points[i]) {
-          ctx.beginPath();
-          ctx.moveTo(points[i-1].x, points[i-1].y);
-          ctx.lineTo(points[i].x, points[i].y);
-          ctx.stroke();
-        }
+  document.getElementById("orderId").textContent = orderId;
+  document.getElementById("role").textContent = role.charAt(0).toUpperCase() + role.slice(1);
+  document.getElementById("username").textContent = username;
+
+  const now = new Date();
+  const pad = n => n < 10 ? "0" + n : n;
+  document.getElementById("date").textContent = `${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()}`;
+  document.getElementById("day").textContent = now.toLocaleDateString('en-US', { weekday: 'long' });
+  document.getElementById("time").textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+
+  const canvas = document.getElementById("signature-pad");
+  const ctx = canvas.getContext("2d");
+  let drawing = false, points = [];
+
+  const resizeCanvas = () => {
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = canvas.offsetWidth * dpr;
+    canvas.height = canvas.offsetHeight * dpr;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.scale(dpr, dpr);
+    redraw();
+  };
+
+  const redraw = () => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = "#cc0000";
+    ctx.lineWidth = 2.5;
+    for (let i = 1; i < points.length; i++) {
+      if (points[i - 1]) {
+        ctx.beginPath();
+        ctx.moveTo(points[i - 1].x, points[i - 1].y);
+        ctx.lineTo(points[i].x, points[i].y);
+        ctx.stroke();
       }
     }
-    canvas.addEventListener('pointerdown', e => {
-      drawing = true;
-      points.push({x: e.offsetX, y: e.offsetY});
-    });
-    canvas.addEventListener('pointermove', e => {
-      if (!drawing) return;
-      points.push({x: e.offsetX, y: e.offsetY});
-      redraw();
-    });
-    canvas.addEventListener('pointerup', e => {
-      drawing = false;
-      redraw();
-    });
-    canvas.addEventListener('pointerleave', e => { drawing = false; });
+  };
 
-    // Prevent scroll on touch devices
-    canvas.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
+  canvas.addEventListener("pointerdown", e => {
+    drawing = true;
+    points.push({ x: e.offsetX, y: e.offsetY });
+  });
+  canvas.addEventListener("pointermove", e => {
+    if (!drawing) return;
+    points.push({ x: e.offsetX, y: e.offsetY });
+    redraw();
+  });
+  canvas.addEventListener("pointerup", () => { drawing = false; });
+  canvas.addEventListener("pointerleave", () => { drawing = false; });
 
-    // Initial resize
-    window.addEventListener('resize', resizeCanvas);
-    setTimeout(resizeCanvas, 80);
+  document.getElementById("clearBtn").onclick = () => {
+    points = [];
+    redraw();
+  };
 
-    // --- Clear Button ---
-    document.getElementById('clearBtn').onclick = () => {
-      points = [];
-      redraw();
+  document.getElementById("submitBtn").onclick = async () => {
+    const name = document.getElementById("name").value.trim();
+    if (!name) return showMsg("❗ Please enter your name", true);
+    if (points.length < 3) return showMsg("✍️ Please sign before submitting", true);
+
+    const payload = {
+      orderId, role, username, name,
+      date: document.getElementById("date").textContent,
+      day: document.getElementById("day").textContent,
+      time: document.getElementById("time").textContent,
+      signature: canvas.toDataURL("image/png"),
+      sendEmail: role === "offloader"
     };
 
-    // --- Submit Button ---
-    document.getElementById('submitBtn').onclick = async function() {
-      const name = document.getElementById('name').value.trim();
-      if (!name) {
-        showMsg("Please enter your name.", true); return;
-      }
-      if (points.length < 3) {
-        showMsg("Please sign before submitting.", true); return;
-      }
-      showMsg("Uploading...", false);
-
-      // Save signature as PNG dataURL
-      const signatureDataURL = canvas.toDataURL('image/png');
-
-      // --- Prepare POST Payload ---
-      const payload = {
-        orderId,
-        role,
-        username,
-        name,
-        date: document.getElementById('date').textContent,
-        day: document.getElementById('day').textContent,
-        time: document.getElementById('time').textContent,
-        signature: signatureDataURL
-      };
-
-      // --- SEND TO n8n WEBHOOK ---
-      try {
-        const resp = await fetch(
-          "https://YOUR_N8N_WEBHOOK_URL_HERE", // TODO: put your real n8n webhook here!
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-          }
-        );
-        const data = await resp.json();
-        if (data.success) {
-          showMsg("✅ Signature uploaded! You may close this page.", false);
-        } else {
-          showMsg("❌ Upload failed: " + (data.message || "Unknown error"), true);
-        }
-      } catch (err) {
-        showMsg("❌ Network error. Try again.", true);
-      }
-    };
-
-    function showMsg(msg, error) {
-      const el = document.getElementById('resultMsg');
-      el.textContent = msg;
-      el.style.color = error ? "#FF5555" : "#FFD700";
+    showMsg("⏳ Uploading...", false);
+    try {
+      const res = await fetch("https://script.google.com/macros/s/AKfycbxTvpc1u0dQ3mZs3mCzyDBi6_azvHPreWlFCodsXEMgauD_zykc0XVvY0eCCckmUB3J/exec", {
+        method: "POST",
+        body: JSON.stringify(payload),
+        headers: { "Content-Type": "application/json" }
+      });
+      const data = await res.json();
+      if (data.success) showMsg("✅ Signature submitted successfully!", false);
+      else showMsg("❌ Error: " + (data.message || "unknown error"), true);
+    } catch (err) {
+      showMsg("❌ Network error. Please try again.", true);
     }
-  </script>
+  };
+
+  const showMsg = (msg, error) => {
+    const el = document.getElementById("resultMsg");
+    el.textContent = msg;
+    el.style.color = error ? "#ff4444" : "#FFD700";
+  };
+
+  window.addEventListener("resize", resizeCanvas);
+  setTimeout(resizeCanvas, 80);
+</script>
 </body>
 </html>
