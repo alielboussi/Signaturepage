@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Order Signature</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    html, body {
+      background: #111;
+      color: #fff;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      margin: 0; padding: 0;
+    }
+    .container {
+      max-width: 400px;
+      margin: 28px auto;
+      background: #1a1a1a;
+      border-radius: 16px;
+      padding: 32px 20px 20px 20px;
+      box-shadow: 0 8px 40px #0008;
+      position: relative;
+    }
+    .logo {
+      display: block;
+      margin: 0 auto 12px auto;
+      width: 82px;
+      height: 82px;
+      background: none;
+    }
+    h2 {
+      color: #FFD700;
+      margin-bottom: 16px;
+      font-size: 1.45em;
+      letter-spacing: 1px;
+      text-align: center;
+      margin-top: 0;
+    }
+    .info-label {
+      color: #ff5555;
+      font-weight: bold;
+      font-size: 1em;
+      margin-bottom: 7px;
+      display: inline-block;
+    }
+    .info-value {
+      color: #FFD700;
+      margin-bottom: 13px;
+      display: inline-block;
+      font-size: 1em;
+      font-family: monospace;
+    }
+    .row { margin-bottom: 12px; }
+    #name {
+      width: 100%;
+      padding: 11px;
+      font-size: 1em;
+      background: #222;
+      border: 1px solid #cc0000;
+      color: #FFD700;
+      border-radius: 7px;
+      margin-bottom: 12px;
+    }
+    #signature-pad {
+      width: 100%;
+      height: 150px;
+      background: #fff;
+      border: 2px solid #cc0000;
+      border-radius: 8px;
+      display: block;
+      margin-bottom: 12px;
+      touch-action: none;
+      cursor: crosshair;
+    }
+    .btn {
+      width: 49%;
+      padding: 12px;
+      font-size: 1em;
+      border: none;
+      border-radius: 8px;
+      font-weight: bold;
+      letter-spacing: 1px;
+      margin-top: 8px;
+      margin-bottom: 8px;
+      transition: 0.1s;
+      cursor: pointer;
+    }
+    .btn-red {
+      background: #cc0000;
+      color: #fff;
+    }
+    .btn-gold {
+      background: #FFD700;
+      color: #111;
+    }
+    .btn-grey {
+      background: #444;
+      color: #fff;
+    }
+    #resultMsg {
+      margin-top: 16px;
+      color: #FFD700;
+      text-align: center;
+      font-weight: bold;
+      min-height: 1.5em;
+    }
+    @media (max-width: 430px) {
+      .container { padding: 14px 2vw 12px 2vw; }
+      .logo { width: 66px; height: 66px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <img src="logo.png" alt="Logo" class="logo">
+    <h2 id="pageTitle">Order Signature</h2>
+    <div class="row">
+      <span class="info-label">Order:</span>
+      <span class="info-value" id="orderId"></span>
+    </div>
+    <div class="row">
+      <span class="info-label">Role:</span>
+      <span class="info-value" id="role"></span>
+    </div>
+    <div class="row">
+      <span class="info-label">Username:</span>
+      <span class="info-value" id="username"></span>
+    </div>
+    <div class="row">
+      <span class="info-label">Date:</span>
+      <span class="info-value" id="date"></span>
+      <span class="info-label" style="margin-left:16px;">Day:</span>
+      <span class="info-value" id="day"></span>
+    </div>
+    <div class="row">
+      <span class="info-label">Time:</span>
+      <span class="info-value" id="time"></span>
+    </div>
+
+    <input type="text" id="name" placeholder="Enter your name..." autocomplete="off" required>
+    <canvas id="signature-pad"></canvas>
+    <div style="display: flex; justify-content: space-between;">
+      <button class="btn btn-grey" type="button" id="clearBtn">Clear</button>
+      <button class="btn btn-gold" type="button" id="submitBtn">Submit</button>
+    </div>
+    <div id="resultMsg"></div>
+  </div>
+  <script>
+    // --- Utils ---
+    function getParam(name) {
+      const url = new URL(window.location.href);
+      return url.searchParams.get(name) || "";
+    }
+    function capitalize(str) {
+      return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+    // --- Info ---
+    const orderId = getParam('orderId');
+    const role = (getParam('role') || 'driver').toLowerCase();
+    const username = getParam('username') || "";
+    // --- Set Info Fields ---
+    document.getElementById('orderId').textContent = orderId;
+    document.getElementById('role').textContent = capitalize(role);
+    document.getElementById('username').textContent = username;
+
+    // --- Set Page Title by Role/Phase ---
+    let title = 'Sign Order';
+    if (role === 'driver') title = "Driver Signature";
+    if (role === 'offloader') title = "Offloader Signature";
+    document.getElementById('pageTitle').textContent = title;
+
+    // --- Date/Day/Time ---
+    const now = new Date();
+    const pad = n => n < 10 ? '0'+n : n;
+    document.getElementById('date').textContent =
+      pad(now.getDate()) + "/" + pad(now.getMonth()+1) + "/" + now.getFullYear();
+    document.getElementById('day').textContent =
+      now.toLocaleString('en-US', { weekday: 'long' });
+    document.getElementById('time').textContent =
+      pad(now.getHours()) + ":" + pad(now.getMinutes()) + ":" + pad(now.getSeconds());
+
+    // --- Signature Pad Logic ---
+    const canvas = document.getElementById('signature-pad');
+    const ctx = canvas.getContext('2d');
+    let drawing = false, points = [];
+    function resizeCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = canvas.offsetWidth * dpr;
+      canvas.height = canvas.offsetHeight * dpr;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.scale(dpr, dpr);
+      redraw();
+    }
+    function redraw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = "#cc0000";
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = "round";
+      for (let i = 1; i < points.length; i++) {
+        if (points[i-1] && points[i]) {
+          ctx.beginPath();
+          ctx.moveTo(points[i-1].x, points[i-1].y);
+          ctx.lineTo(points[i].x, points[i].y);
+          ctx.stroke();
+        }
+      }
+    }
+    canvas.addEventListener('pointerdown', e => {
+      drawing = true;
+      points.push({x: e.offsetX, y: e.offsetY});
+    });
+    canvas.addEventListener('pointermove', e => {
+      if (!drawing) return;
+      points.push({x: e.offsetX, y: e.offsetY});
+      redraw();
+    });
+    canvas.addEventListener('pointerup', e => {
+      drawing = false;
+      redraw();
+    });
+    canvas.addEventListener('pointerleave', e => { drawing = false; });
+
+    // Prevent scroll on touch devices
+    canvas.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
+
+    // Initial resize
+    window.addEventListener('resize', resizeCanvas);
+    setTimeout(resizeCanvas, 80);
+
+    // --- Clear Button ---
+    document.getElementById('clearBtn').onclick = () => {
+      points = [];
+      redraw();
+    };
+
+    // --- Submit Button ---
+    document.getElementById('submitBtn').onclick = async function() {
+      const name = document.getElementById('name').value.trim();
+      if (!name) {
+        showMsg("Please enter your name.", true); return;
+      }
+      if (points.length < 3) {
+        showMsg("Please sign before submitting.", true); return;
+      }
+      showMsg("Uploading...", false);
+
+      // Save signature as PNG dataURL
+      const signatureDataURL = canvas.toDataURL('image/png');
+
+      // --- Prepare POST Payload ---
+      const payload = {
+        orderId,
+        role,
+        username,
+        name,
+        date: document.getElementById('date').textContent,
+        day: document.getElementById('day').textContent,
+        time: document.getElementById('time').textContent,
+        signature: signatureDataURL
+      };
+
+      // --- SEND TO n8n WEBHOOK ---
+      try {
+        const resp = await fetch(
+          "https://YOUR_N8N_WEBHOOK_URL_HERE", // TODO: put your real n8n webhook here!
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          }
+        );
+        const data = await resp.json();
+        if (data.success) {
+          showMsg("✅ Signature uploaded! You may close this page.", false);
+        } else {
+          showMsg("❌ Upload failed: " + (data.message || "Unknown error"), true);
+        }
+      } catch (err) {
+        showMsg("❌ Network error. Try again.", true);
+      }
+    };
+
+    function showMsg(msg, error) {
+      const el = document.getElementById('resultMsg');
+      el.textContent = msg;
+      el.style.color = error ? "#FF5555" : "#FFD700";
+    }
+  </script>
+</body>
+</html>
