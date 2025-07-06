@@ -30,54 +30,32 @@
       font-size: 1.5em;
       text-align: center;
     }
-    .info-label {
-      color: #ff5555;
-      font-weight: bold;
-      margin-right: 6px;
-    }
-    .info-value {
-      color: #FFD700;
-      font-family: monospace;
-    }
+    .info-label { color: #ff5555; font-weight: bold; margin-right: 6px; }
+    .info-value { color: #FFD700; font-family: monospace; }
     .row { margin-bottom: 10px; }
     #name {
-      width: 100%;
-      padding: 10px;
-      background: #222;
-      border: 1px solid #cc0000;
-      color: #FFD700;
-      border-radius: 6px;
-      margin-bottom: 12px;
+      width: 100%; padding: 10px;
+      background: #222; border: 1px solid #cc0000;
+      color: #FFD700; border-radius: 6px; margin-bottom: 12px;
     }
     #signature-pad {
-      width: 100%;
-      height: 150px;
-      background: #fff;
-      border: 2px solid #cc0000;
-      border-radius: 8px;
-      margin-bottom: 12px;
+      width: 100%; height: 150px; background: #fff;
+      border: 2px solid #cc0000; border-radius: 8px; margin-bottom: 12px;
     }
     .btn {
-      width: 48%;
-      padding: 12px;
-      font-size: 1em;
-      border: none;
-      border-radius: 8px;
-      font-weight: bold;
-      cursor: pointer;
+      width: 48%; padding: 12px; font-size: 1em;
+      border: none; border-radius: 8px; font-weight: bold; cursor: pointer;
     }
     .btn-grey { background: #444; color: #fff; }
     .btn-gold { background: #FFD700; color: #111; }
     #resultMsg {
-      text-align: center;
-      font-weight: bold;
-      margin-top: 16px;
+      text-align: center; font-weight: bold; margin-top: 16px;
       min-height: 1.2em;
     }
   </style>
 </head>
 <body>
-<div class="container">
+<div class="container" id="mainContainer">
   <img src="logo.png" alt="Logo" class="logo">
   <h2 id="pageTitle">Order Signature</h2>
   <div class="row"><span class="info-label">Order:</span><span class="info-value" id="orderId"></span></div>
@@ -100,7 +78,7 @@
 <script>
   const getParam = name => new URLSearchParams(location.search).get(name) || "";
 
-  const orderId = getParam("orderId");
+  const orderId = getParam("order_id");
   const role = getParam("role") || "driver";
   const username = getParam("username") || "";
 
@@ -180,8 +158,11 @@
         headers: { "Content-Type": "application/json" }
       });
       const data = await res.json();
-      if (data.success) showMsg("✅ Signature submitted successfully!", false);
-      else showMsg("❌ Error: " + (data.message || "unknown error"), true);
+      if (data.success) {
+        showThankYouMessage();
+      } else {
+        showMsg("❌ Error: " + (data.message || "unknown error"), true);
+      }
     } catch (err) {
       showMsg("❌ Network error. Please try again.", true);
     }
@@ -191,6 +172,22 @@
     const el = document.getElementById("resultMsg");
     el.textContent = msg;
     el.style.color = error ? "#ff4444" : "#FFD700";
+  };
+
+  const showThankYouMessage = () => {
+    document.getElementById("mainContainer").innerHTML = `
+      <div style="text-align:center; padding: 40px;">
+        <h2 style="color:#FFD700;">✅ Thank you!</h2>
+        <p style="margin-top:12px; font-size:16px;">Your signature was successfully submitted.</p>
+        <button onclick="redirectToApp()" style="margin-top:24px; padding:10px 24px; background:red; color:white; border:none; border-radius:8px; font-size:16px;">
+          Return to App
+        </button>
+      </div>
+    `;
+  };
+
+  const redirectToApp = () => {
+    window.location.href = `branchorderapp://handover-complete?order_id=${orderId}`;
   };
 
   window.addEventListener("resize", resizeCanvas);
