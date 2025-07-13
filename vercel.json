@@ -1,10 +1,11 @@
 {
   "version": 2,
-  "public": "public",
   "builds": [
     { "src": "api/upload.py", "use": "@vercel/python" }
   ],
   "routes": [
-    { "src": "/api/upload", "dest": "api/upload.py" }
+    { "src": "/api/upload", "dest": "api/upload.py" },
+    { "handle": "filesystem" },
+    { "src": "/.*", "dest": "/index.html" }
   ]
 }
