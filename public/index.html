@@ -79,13 +79,7 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import {
-    getFirestore,
-    doc,
-    getDoc,
-    updateDoc,
-    Timestamp
-  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyBIKgsbgLxyXQgZeBigTL9Em3E2K8PWLig",
@@ -98,7 +92,6 @@
   const db = getFirestore(app);
 
   const getParam = name => new URLSearchParams(location.search).get(name) || "";
-
   const orderId = getParam("order_id");
   const role = getParam("role") || "driver";
   const username = getParam("supervisor_name") || getParam("username") || "";
@@ -184,25 +177,28 @@
     if (!name) return showMsg("❗ Please enter your name", true);
     if (points.length < 3) return showMsg("✍️ Please sign before submitting", true);
 
-    const signatureUrl = canvas.toDataURL("image/png");
+    const signatureBlob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
 
-    showMsg("⏳ Uploading to Firestore...", false);
+    showMsg("⏳ Uploading PDF...", false);
     try {
-      const docRef = doc(db, "orders", orderId);
-      const snap = await getDoc(docRef);
-      if (!snap.exists()) return showMsg("❌ Order not found", true);
+      const formData = new FormData();
+      formData.append("order_id", orderId);
+      formData.append("driver_name", name);
+      formData.append("supervisor_name", username);
+      formData.append("signature", signatureBlob, "signature.png");
 
-      await updateDoc(docRef, {
-        "Driver Name": name,
-        "Driver Signature": signatureUrl,
-        "Driver Signature At": Timestamp.now(),
-        "Supervisor Name": username
+      const res = await fetch("https://signaturepage-two.vercel.app/api/pdf", {
+        method: "POST",
+        body: formData
       });
+
+      const json = await res.json();
+      if (!json.success) return showMsg("❌ Upload failed: " + json.message, true);
 
       showThankYouMessage(name);
     } catch (err) {
       console.error(err);
-      showMsg("❌ Firestore error. Try again.", true);
+      showMsg("❌ Upload error. Try again.", true);
     }
   };
 
