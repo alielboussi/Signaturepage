@@ -42,6 +42,7 @@
     #signature-pad {
       width: 100%; height: 150px; background: #fff;
       border: 2px solid #cc0000; border-radius: 8px; margin-bottom: 12px;
+      touch-action: none;
     }
     .btn {
       width: 48%; padding: 12px; font-size: 1em;
@@ -132,6 +133,49 @@
     }
   };
 
+  const resizeCanvas = () => {
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = canvas.offsetWidth * dpr;
+    canvas.height = canvas.offsetHeight * dpr;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.scale(dpr, dpr);
+    redraw();
+  };
+
+  window.addEventListener("resize", resizeCanvas);
+  setTimeout(resizeCanvas, 100);
+
+  const getCanvasPos = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (e.clientX - rect.left),
+      y: (e.clientY - rect.top)
+    };
+  };
+
+  canvas.addEventListener("pointerdown", e => {
+    e.preventDefault();
+    drawing = true;
+    points.push(getCanvasPos(e));
+  }, { passive: false });
+
+  canvas.addEventListener("pointermove", e => {
+    if (!drawing) return;
+    e.preventDefault();
+    points.push(getCanvasPos(e));
+    redraw();
+  }, { passive: false });
+
+  canvas.addEventListener("pointerup", e => {
+    e.preventDefault();
+    drawing = false;
+  });
+
+  canvas.addEventListener("pointerleave", e => {
+    e.preventDefault();
+    drawing = false;
+  });
+
   document.getElementById("clearBtn").onclick = () => {
     points = [];
     redraw();
@@ -165,17 +209,6 @@
     }
   };
 
-  const resizeCanvas = () => {
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = canvas.offsetWidth * dpr;
-    canvas.height = canvas.offsetHeight * dpr;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.scale(dpr, dpr);
-    redraw();
-  };
-  window.addEventListener("resize", resizeCanvas);
-  setTimeout(resizeCanvas, 100);
-
   const showMsg = (msg, error) => {
     const el = document.getElementById("resultMsg");
     el.textContent = msg;
@@ -197,18 +230,6 @@
   const redirectToApp = () => {
     window.location.href = `branchorderapp://handover-complete?order_id=${orderId}`;
   };
-
-  canvas.addEventListener("pointerdown", e => {
-    drawing = true;
-    points.push({ x: e.offsetX, y: e.offsetY });
-  });
-  canvas.addEventListener("pointermove", e => {
-    if (!drawing) return;
-    points.push({ x: e.offsetX, y: e.offsetY });
-    redraw();
-  });
-  canvas.addEventListener("pointerup", () => { drawing = false; });
-  canvas.addEventListener("pointerleave", () => { drawing = false; });
 </script>
 </body>
 </html>
