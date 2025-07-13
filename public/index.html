@@ -81,10 +81,8 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import {
     getFirestore,
-    collection,
-    query,
-    where,
-    getDocs,
+    doc,
+    getDoc,
     updateDoc,
     Timestamp
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -190,11 +188,10 @@
 
     showMsg("⏳ Uploading to Firestore...", false);
     try {
-      const q = query(collection(db, "orders"), where("id", "==", orderId));
-      const snap = await getDocs(q);
-      if (snap.empty) return showMsg("❌ Order not found", true);
+      const docRef = doc(db, "orders", orderId);
+      const snap = await getDoc(docRef);
+      if (!snap.exists()) return showMsg("❌ Order not found", true);
 
-      const docRef = snap.docs[0].ref;
       await updateDoc(docRef, {
         "Driver Name": name,
         "Driver Signature": signatureUrl,
