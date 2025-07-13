@@ -1,0 +1,7 @@
+flask
+mega.py
+firebase-admin
+gunicorn
+reportlab
+pillow
+supabase
