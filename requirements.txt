@@ -1,4 +1,0 @@
-flask
-mega.py
-firebase-admin
-gunicorn
