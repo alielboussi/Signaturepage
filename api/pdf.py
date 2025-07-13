@@ -1,6 +1,7 @@
 import os
 import tempfile
 import base64
+import re
 from flask import Flask, request, jsonify
 from mega import Mega
 from datetime import datetime
@@ -8,17 +9,26 @@ from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 import firebase_admin
 from firebase_admin import credentials, firestore
+from PIL import Image
+from io import BytesIO
 
 # Initialize Firebase
 cred = credentials.Certificate("serviceAccountKey.json")
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
-# Login to Mega.nz
+# Mega.nz Login
 mega = Mega()
-m = mega.login(email=os.environ.get("MEGA_EMAIL"), password=os.environ.get("MEGA_PASSWORD"))
+m = mega.login(email="aftertenorders@gmail.com", password="Lebanon1111$")
 
 app = Flask(__name__)
+
+def fix_base64(b64str):
+    # Remove data:image/...;base64, header (if present)
+    b64str = re.sub(r"^data:image\/[a-zA-Z0-9+]+;base64,", "", b64str)
+    # Add padding if needed
+    b64str += "=" * (-len(b64str) % 4)
+    return b64str
 
 @app.route("/api/pdf", methods=["POST"])
 def generate_and_upload_pdf():
@@ -29,19 +39,34 @@ def generate_and_upload_pdf():
         driver_name = data.get("driver_name", "Driver")
         branch_name = data.get("branch_name", "UnknownBranch")
         date = data.get("date", datetime.now().strftime("%d-%m-%Y"))
-        signature_base64 = data.get("signature_base64")
+        signature_base64 = data.get("signature_base64", "")
         item_summary = data.get("item_summary", [])
 
         if not all([order_id, driver_name, branch_name, signature_base64]):
             return jsonify({"success": False, "message": "Missing required fields"}), 400
 
-        # Decode base64 signature image
-        signature_bytes = base64.b64decode(signature_base64.split(',')[-1])
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as sig_img:
-            sig_img.write(signature_bytes)
-            sig_img_path = sig_img.name
+        # Fix base64
+        signature_base64_fixed = fix_base64(signature_base64)
 
-        # Build safe filename
+        # Try to decode and save as image
+        try:
+            signature_bytes = base64.b64decode(signature_base64_fixed)
+            try:
+                image = Image.open(BytesIO(signature_bytes)).convert("RGB")
+                sig_img_path = tempfile.NamedTemporaryFile(delete=False, suffix=".png").name
+                image.save(sig_img_path, format="PNG")
+            except Exception:
+                # Fallback: just write bytes (handles Android/Canvas native PNGs)
+                sig_img_path = tempfile.NamedTemporaryFile(delete=False, suffix=".png").name
+                with open(sig_img_path, "wb") as img_file:
+                    img_file.write(signature_bytes)
+        except Exception as e:
+            return jsonify({
+                "success": False,
+                "message": f"Invalid signature image: {str(e)}"
+            }), 400
+
+        # Safe filename
         safe_driver = driver_name.replace(" ", "_")
         safe_branch = branch_name.replace(" ", "_")
         final_filename = f"{safe_driver}_{safe_branch}_{date}.pdf"
@@ -76,7 +101,13 @@ def generate_and_upload_pdf():
             c.save()
             final_pdf_path = pdf_file.name
 
-        # Rename for Mega
+        # Remove temp signature file
+        try:
+            os.remove(sig_img_path)
+        except Exception:
+            pass
+
+        # Rename PDF
         renamed_path = os.path.join(os.path.dirname(final_pdf_path), final_filename)
         os.rename(final_pdf_path, renamed_path)
 
@@ -85,14 +116,20 @@ def generate_and_upload_pdf():
         public_url = m.get_upload_link(uploaded)
 
         # Update Firestore
-        doc_ref = db.collection("orders").document(order_id)
-        doc_ref.update({
+        db.collection("orders").document(order_id).update({
             "driver_pdf_url": public_url,
             "driver_pdf_filename": final_filename,
             "driver_pdf_uploaded_at": firestore.SERVER_TIMESTAMP
         })
 
-        return jsonify({"success": True, "pdf_url": public_url, "filename": final_filename})
+        return jsonify({
+            "success": True,
+            "pdf_url": public_url,
+            "filename": final_filename
+        })
 
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
+
+if __name__ == "__main__":
+    app.run(debug=True)
