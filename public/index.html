@@ -199,7 +199,7 @@
         "Supervisor Name": username
       });
 
-      showThankYouMessage();
+      showThankYouMessage(name);
     } catch (err) {
       console.error(err);
       showMsg("❌ Firestore error. Try again.", true);
@@ -212,20 +212,21 @@
     el.style.color = error ? "#ff4444" : "#FFD700";
   };
 
-  const showThankYouMessage = () => {
+  const showThankYouMessage = (driverName) => {
     document.getElementById("mainContainer").innerHTML = `
       <div style="text-align:center; padding: 40px;">
         <h2 style="color:#FFD700;">✅ Thank you!</h2>
         <p style="margin-top:12px; font-size:16px;">Your signature was successfully submitted.</p>
-        <button onclick="redirectToApp()" style="margin-top:24px; padding:10px 24px; background:red; color:white; border:none; border-radius:8px; font-size:16px;">
+        <button onclick="redirectToApp('${driverName}')" style="margin-top:24px; padding:10px 24px; background:red; color:white; border:none; border-radius:8px; font-size:16px;">
           Return to App
         </button>
       </div>
     `;
   };
 
-  const redirectToApp = () => {
-    window.location.href = `branchorderapp://handover-complete?order_id=${orderId}`;
+  const redirectToApp = (driverName) => {
+    const encodedName = encodeURIComponent(driverName);
+    window.location.href = `branchorderapp://handover-complete?order_id=${orderId}&driver_name=${encodedName}`;
   };
 </script>
 </body>
