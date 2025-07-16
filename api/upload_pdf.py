@@ -245,7 +245,7 @@ def upload_pdf():
         elif role == "offloader":
             update_data.update({
                 "offloader_pdf_url": public_url,
-                "status": "delivery offloaded"
+                "status": "order completed"
             })
 
         update_resp = supabase.table("orders").update(update_data).or_(f"uuid.eq.{order_id},id.eq.{order_id}").execute()
