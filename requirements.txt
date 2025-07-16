@@ -1,7 +1,5 @@
-flask
-mega.py
-firebase-admin
-gunicorn
+Flask==2.3.3
 reportlab
 pillow
-supabase
+supabase==2.0.3
+gunicorn
