@@ -195,21 +195,20 @@
     el.style.color = error ? "#ff4444" : "#FFD700";
   };
 
+  // THIS VERSION: a real link for mobile browser support!
   const showThankYouMessage = (driverName) => {
+    const appUrl = `branchorderapp://handover-complete?order_id=${orderId}&driver_name=${encodeURIComponent(driverName)}`;
     document.getElementById("mainContainer").innerHTML = `
       <div style="text-align:center; padding: 40px;">
         <h2 style="color:#FFD700;">✅ Thank you!</h2>
         <p style="margin-top:12px; font-size:16px;">Your signature was successfully submitted.</p>
-        <button onclick="redirectToApp('${driverName}')" style="margin-top:24px; padding:10px 24px; background:red; color:white; border:none; border-radius:8px; font-size:16px;">
-          Return to App
-        </button>
+        <a id="returnToAppBtn"
+           href="${appUrl}"
+           style="display:inline-block; margin-top:24px; padding:10px 24px; background:red; color:white; border:none; border-radius:8px; font-size:16px; text-align:center; text-decoration:none;">
+           Return to App
+        </a>
       </div>
     `;
-  };
-
-  const redirectToApp = (driverName) => {
-    const encodedName = encodeURIComponent(driverName);
-    window.location.href = `branchorderapp://handover-complete?order_id=${orderId}&driver_name=${encodedName}`;
   };
 </script>
 </body>
