@@ -5,6 +5,7 @@ import uuid
 from flask import Flask, request, jsonify
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
+from reportlab.lib.utils import ImageReader
 from supabase import create_client, Client
 from datetime import datetime
 
@@ -26,14 +27,16 @@ def calculate_total(items):
     except Exception:
         return 0.0
 
-def generate_pdf(order_id, driver_name, supervisor_name, branch_name, date_str, time_str, order_cost, item_summary, signature_img_path, role="Driver"):
+def generate_pdf(order_id, supervisor_name, branch_name, date_str, time_str, order_cost, item_summary,
+                 driver_name=None, driver_signature_img=None,
+                 offloader_name=None, offloader_signature_img=None):
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as pdf_file:
         c = canvas.Canvas(pdf_file.name, pagesize=A4)
         width, height = A4
 
         y = height - 50
         c.setFont("Helvetica-Bold", 18)
-        c.drawCentredString(width // 2, y, "Driver Handover Receipt")
+        c.drawCentredString(width // 2, y, "Order Handover Receipt")
         y -= 35
 
         c.setFont("Helvetica", 12)
@@ -42,14 +45,9 @@ def generate_pdf(order_id, driver_name, supervisor_name, branch_name, date_str, 
         c.drawString(50, y, f"Date: {date_str}")
         c.drawString(220, y, f"Time: {time_str}")
         y -= 20
-        c.drawString(50, y, f"Driver: {driver_name}")
-        c.drawString(300, y, f"Role: {role}")
-        y -= 20
         c.drawString(50, y, f"Branch: {branch_name}")
         y -= 20
         c.drawString(50, y, f"Supervisor: {supervisor_name}")
-        y -= 20
-        c.drawString(50, y, f"Approved By: {supervisor_name}")
         y -= 20
         c.drawString(50, y, f"Order Total: K{order_cost:,.2f}")
         y -= 25
@@ -73,11 +71,31 @@ def generate_pdf(order_id, driver_name, supervisor_name, branch_name, date_str, 
                     c.showPage()
                     y = height - 50
 
+        # --- Driver Section ---
         y -= 15
-        c.setFont("Helvetica-Bold", 12)
-        c.drawString(50, y, "Driver Signature:")
-        y -= 90
-        c.drawImage(signature_img_path, 200, y, width=200, height=80)
+        if driver_name:
+            c.setFont("Helvetica-Bold", 12)
+            c.drawString(50, y, f"Driver Name: {driver_name}")
+            y -= 18
+            if driver_signature_img:
+                c.setFont("Helvetica-Bold", 12)
+                c.drawString(50, y, "Driver Signature:")
+                y -= 80
+                c.drawImage(driver_signature_img, 200, y, width=200, height=80)
+                y -= 15
+
+        # --- Offloader Section ---
+        if offloader_name:
+            y -= 10
+            c.setFont("Helvetica-Bold", 12)
+            c.drawString(50, y, f"Offloader Name: {offloader_name}")
+            y -= 18
+            if offloader_signature_img:
+                c.setFont("Helvetica-Bold", 12)
+                c.drawString(50, y, "Offloader Signature:")
+                y -= 80
+                c.drawImage(offloader_signature_img, 200, y, width=200, height=80)
+                y -= 15
 
         c.save()
         return pdf_file.name
@@ -86,18 +104,21 @@ def generate_pdf(order_id, driver_name, supervisor_name, branch_name, date_str, 
 def upload_pdf():
     try:
         order_id = request.form.get("order_id") or request.form.get("order_uuid")
-        driver_name = request.form.get("driver_name", "Driver")
         supervisor_name = request.form.get("supervisor_name", "Unknown Supervisor")
-        role = request.form.get("role", "Driver")
+        role = (request.form.get("role", "driver") or "driver").lower()
 
-        # --- Fetch order from Supabase for all real info ---
+        now = datetime.now()
+        date_str = now.strftime("%Y-%m-%d")
+        time_str = now.strftime("%H:%M:%S")
+        now_iso = now.isoformat()
+
+        # Fetch order data
         order = None
         branch_name = "Unknown Branch"
         item_summary = []
         order_cost = 0.00
 
         if order_id:
-            # try uuid first, fallback to id for flexibility
             result = supabase.table("orders").select("*").or_(f"uuid.eq.{order_id},id.eq.{order_id}").limit(1).execute()
             if result.data and len(result.data) > 0:
                 order = result.data[0]
@@ -112,7 +133,7 @@ def upload_pdf():
                     item_summary = []
                 order_cost = calculate_total(item_summary)
 
-        # If frontend sends new items or branch/cost, override:
+        # Allow frontend override
         branch_name = request.form.get("branch_name", branch_name)
         item_summary_raw = request.form.get("item_summary")
         order_cost_frontend = request.form.get("order_cost")
@@ -128,41 +149,81 @@ def upload_pdf():
             except Exception:
                 pass
 
-        now = datetime.now()
-        date_str = now.strftime("%Y-%m-%d")
-        time_str = now.strftime("%H:%M:%S")
-        now_iso = now.isoformat()
+        # --- Signature Files ---
+        driver_name = order.get("driver_name", "") if order else ""
+        offloader_name = order.get("offloader_name", "") if order else ""
+        driver_signature_img = None
+        offloader_signature_img = None
 
-        signature_file = request.files.get("signature")
-        if not signature_file:
-            return jsonify({"success": False, "message": "Missing signature file"}), 400
+        update_data = {
+            "supervisor_name": supervisor_name,
+        }
+        pdf_signer_name = None
 
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as sig_temp:
-            signature_file.save(sig_temp.name)
-            sig_path = sig_temp.name
+        # Handle driver role
+        if role == "driver":
+            driver_name = request.form.get("driver_name", driver_name)
+            signature_file = request.files.get("signature")
+            if not signature_file:
+                return jsonify({"success": False, "message": "Missing driver signature file"}), 400
 
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as sig_temp:
+                signature_file.save(sig_temp.name)
+                driver_signature_img = sig_temp.name
+
+            update_data.update({
+                "driver_name": driver_name,
+                "driver_signature_at": now_iso,
+            })
+            pdf_signer_name = driver_name
+
+        # Handle offloader role
+        elif role == "offloader":
+            offloader_name = request.form.get("driver_name", offloader_name)  # driver_name reused as offloader_name in frontend
+            signature_file = request.files.get("signature")
+            if not signature_file:
+                return jsonify({"success": False, "message": "Missing offloader signature file"}), 400
+
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as sig_temp:
+                signature_file.save(sig_temp.name)
+                offloader_signature_img = sig_temp.name
+
+            update_data.update({
+                "offloader_name": offloader_name,
+                "offloader_signature_at": now_iso,
+            })
+            pdf_signer_name = offloader_name
+
+        else:
+            return jsonify({"success": False, "message": "Unsupported role"}), 400
+
+        # Generate PDF with BOTH signatures if available
         pdf_path = generate_pdf(
             order_id=order_id,
-            driver_name=driver_name,
             supervisor_name=supervisor_name,
             branch_name=branch_name,
             date_str=date_str,
             time_str=time_str,
             order_cost=order_cost,
             item_summary=item_summary,
-            signature_img_path=sig_path,
-            role=role
+            driver_name=driver_name,
+            driver_signature_img=driver_signature_img,
+            offloader_name=offloader_name,
+            offloader_signature_img=offloader_signature_img
         )
 
+        # Clean up sig images
         try:
-            os.remove(sig_path)
-        except Exception:
-            pass
+            if driver_signature_img: os.remove(driver_signature_img)
+        except Exception: pass
+        try:
+            if offloader_signature_img: os.remove(offloader_signature_img)
+        except Exception: pass
 
-        safe_driver = driver_name.replace(" ", "_")
+        safe_signer = (pdf_signer_name or "signer").replace(" ", "_")
         safe_branch = branch_name.replace(" ", "_")
         unique_id = uuid.uuid4().hex[:8]
-        filename = f"{safe_driver}_{safe_branch}_{date_str}_{order_id}_{unique_id}.pdf"
+        filename = f"{safe_signer}_{safe_branch}_{date_str}_{order_id}_{unique_id}.pdf"
 
         with open(pdf_path, "rb") as f:
             pdf_bytes = f.read()
@@ -175,13 +236,18 @@ def upload_pdf():
         if not public_url:
             public_url = f"{SUPABASE_URL}/storage/v1/object/public/driverapproval/{filename}"
 
-        update_data = {
-            "driver_name": driver_name,
-            "driver_signature_at": now_iso,
-            "driver_pdf_url": public_url,
-            "supervisor_name": supervisor_name,
-            "status": "driver signed and order on the way"
-        }
+        # Update DB with correct PDF URL and signature fields
+        if role == "driver":
+            update_data.update({
+                "driver_pdf_url": public_url,
+                "status": "driver signed and order on the way"
+            })
+        elif role == "offloader":
+            update_data.update({
+                "offloader_pdf_url": public_url,
+                "status": "delivery offloaded"
+            })
+
         update_resp = supabase.table("orders").update(update_data).or_(f"uuid.eq.{order_id},id.eq.{order_id}").execute()
         if hasattr(update_resp, "error") and update_resp.error:
             return jsonify({"success": False, "message": "Failed to update orders table: " + str(update_resp.error)}), 500
