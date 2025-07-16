@@ -219,9 +219,8 @@
     el.style.color = error ? "#ff4444" : "#FFD700";
   };
 
-  // Show "Return to App" with deep link after upload
+  // Show "Return to App" with deep link after upload and auto-redirect
   const showThankYouMessage = (signerName) => {
-    // Use the role in the return URL for flexibility (optional, can be omitted)
     const appUrl = `branchorderapp://handover-complete?order_id=${orderId}&name=${encodeURIComponent(signerName)}&role=${encodeURIComponent(role)}`;
     document.getElementById("mainContainer").innerHTML = `
       <div style="text-align:center; padding: 40px;">
@@ -234,6 +233,8 @@
         </a>
       </div>
     `;
+    // Auto-redirect to app after 1.2 seconds (Android browser friendly)
+    setTimeout(() => window.location.href = appUrl, 1200);
   };
 </script>
 </body>
