@@ -68,8 +68,7 @@ def generate_pdf(order_id, driver_name, supervisor_name, branch_name, date_str, 
 @app.route("/api/upload-pdf", methods=["POST"])
 def upload_pdf():
     try:
-        # Accept ALL the new metadata fields
-        order_uuid = request.form.get("order_id") or request.form.get("order_uuid")
+        order_id = request.form.get("order_id") or request.form.get("order_uuid")
         driver_name = request.form.get("driver_name", "Driver")
         supervisor_name = request.form.get("supervisor_name", "Unknown Supervisor")
         branch_name = request.form.get("branch_name", "Unknown Branch")
@@ -77,8 +76,8 @@ def upload_pdf():
         role = request.form.get("role", "Driver")
         item_summary_raw = request.form.get("item_summary", "[]")
 
-        if not order_uuid:
-            return jsonify({"success": False, "message": "Missing order_uuid"}), 400
+        if not order_id:
+            return jsonify({"success": False, "message": "Missing order_id"}), 400
 
         try:
             item_summary = json.loads(item_summary_raw)
@@ -99,7 +98,7 @@ def upload_pdf():
         sig_temp.close()
 
         pdf_path = generate_pdf(
-            order_id=order_uuid,
+            order_id=order_id,
             driver_name=driver_name,
             supervisor_name=supervisor_name,
             branch_name=branch_name,
@@ -119,7 +118,7 @@ def upload_pdf():
         safe_driver = driver_name.replace(" ", "_")
         safe_branch = branch_name.replace(" ", "_")
         unique_id = uuid.uuid4().hex[:8]
-        filename = f"{safe_driver}_{safe_branch}_{date_str}_{order_uuid}_{unique_id}.pdf"
+        filename = f"{safe_driver}_{safe_branch}_{date_str}_{order_id}_{unique_id}.pdf"
 
         with open(pdf_path, "rb") as f:
             pdf_bytes = f.read()
@@ -132,14 +131,15 @@ def upload_pdf():
         if not public_url:
             public_url = f"{SUPABASE_URL}/storage/v1/object/public/driverapproval/{filename}"
 
-        # Update ALL relevant columns in Supabase
+        # ==== THIS IS CRUCIAL! ==== #
+        # Make sure this field matches your orders table PK!
         update_data = {
             "driver_name": driver_name,
             "driver_signature_at": now_iso,
             "driver_pdf_url": public_url,
             "supervisor_name": supervisor_name
         }
-        update_resp = supabase.table("orders").update(update_data).eq("uuid", order_uuid).execute()
+        update_resp = supabase.table("orders").update(update_data).eq("id", order_id).execute()
         if hasattr(update_resp, "error") and update_resp.error:
             return jsonify({"success": False, "message": "Failed to update orders table: " + str(update_resp.error)}), 500
 
