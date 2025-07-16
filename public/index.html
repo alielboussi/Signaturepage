@@ -78,19 +78,6 @@
 </div>
 
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyBIKgsbgLxyXQgZeBigTL9Em3E2K8PWLig",
-    authDomain: "aftertenorders-fc9db.firebaseapp.com",
-    projectId: "aftertenorders-fc9db",
-    storageBucket: "aftertenorders-fc9db.appspot.com"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
-
   const getParam = name => new URLSearchParams(location.search).get(name) || "";
   const orderId = getParam("order_id");
   const role = getParam("role") || "driver";
@@ -187,7 +174,7 @@
       formData.append("supervisor_name", username);
       formData.append("signature", signatureBlob, "signature.png");
 
-      const res = await fetch("https://signaturepage-two.vercel.app/api/pdf", {
+      const res = await fetch("https://signaturepage-two.vercel.app/api/upload_pdf", {
         method: "POST",
         body: formData
       });
