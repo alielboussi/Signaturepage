@@ -65,7 +65,7 @@ def generate_pdf(order_id, driver_name, supervisor_name, branch_name, date_str, 
         c.save()
         return pdf_file.name
 
-@app.route("/api/upload-pdf", methods=["POST"])
+@app.route("/api/upload_pdf", methods=["POST"])
 def upload_pdf():
     try:
         order_id = request.form.get("order_id") or request.form.get("order_uuid")
@@ -131,15 +131,13 @@ def upload_pdf():
         if not public_url:
             public_url = f"{SUPABASE_URL}/storage/v1/object/public/driverapproval/{filename}"
 
-        # ==== THIS IS CRUCIAL! ==== #
-        # Make sure this field matches your orders table PK!
         update_data = {
             "driver_name": driver_name,
             "driver_signature_at": now_iso,
             "driver_pdf_url": public_url,
             "supervisor_name": supervisor_name
         }
-        update_resp = supabase.table("orders").update(update_data).eq("id", order_id).execute()
+        update_resp = supabase.table("orders").update(update_data).eq("uuid", order_id).execute()
         if hasattr(update_resp, "error") and update_resp.error:
             return jsonify({"success": False, "message": "Failed to update orders table: " + str(update_resp.error)}), 500
 
