@@ -131,11 +131,13 @@ def upload_pdf():
         if not public_url:
             public_url = f"{SUPABASE_URL}/storage/v1/object/public/driverapproval/{filename}"
 
+        # 👇 **FINAL FIX: Update status to 'driver signed and order on the way'**
         update_data = {
             "driver_name": driver_name,
             "driver_signature_at": now_iso,
             "driver_pdf_url": public_url,
-            "supervisor_name": supervisor_name
+            "supervisor_name": supervisor_name,
+            "status": "driver signed and order on the way"
         }
         update_resp = supabase.table("orders").update(update_data).eq("uuid", order_id).execute()
         if hasattr(update_resp, "error") and update_resp.error:
