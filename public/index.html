@@ -78,13 +78,28 @@
 </div>
 
 <script type="module">
+  // --- GET PARAMS ---
   const getParam = name => new URLSearchParams(location.search).get(name) || "";
   const orderId = getParam("order_id");
-  const role = getParam("role") || "driver";
+  let role = getParam("role") || "driver";
+  role = role.toLowerCase();
   const username = getParam("supervisor_name") || getParam("username") || "";
 
+  // Dynamic role label and button text
+  function getRoleLabel(role) {
+    if (role === "offloader") return "Offloader";
+    if (role === "supervisor") return "Supervisor";
+    return "Driver";
+  }
+  function getButtonText(role) {
+    if (role === "offloader") return "Confirm Offload";
+    if (role === "supervisor") return "Approve";
+    return "Submit";
+  }
+
   document.getElementById("orderId").textContent = orderId;
-  document.getElementById("role").textContent = role.charAt(0).toUpperCase() + role.slice(1);
+  document.getElementById("role").textContent = getRoleLabel(role);
+  document.getElementById("submitBtn").textContent = getButtonText(role);
   document.getElementById("username").textContent = username;
 
   const now = new Date();
@@ -93,6 +108,7 @@
   document.getElementById("day").textContent = now.toLocaleDateString('en-US', { weekday: 'long' });
   document.getElementById("time").textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
 
+  // --- SIGNATURE PAD ---
   const canvas = document.getElementById("signature-pad");
   const ctx = canvas.getContext("2d");
   let drawing = false, points = [];
@@ -171,9 +187,11 @@
       const formData = new FormData();
       formData.append("order_id", orderId);
       formData.append("driver_name", name);
+      formData.append("role", role);
       formData.append("supervisor_name", username);
       formData.append("signature", signatureBlob, "signature.png");
 
+      // Update endpoint as needed
       const res = await fetch("https://signaturepage-two.vercel.app/api/upload_pdf", {
         method: "POST",
         body: formData
@@ -195,9 +213,10 @@
     el.style.color = error ? "#ff4444" : "#FFD700";
   };
 
-  // THIS VERSION: a real link for mobile browser support!
-  const showThankYouMessage = (driverName) => {
-    const appUrl = `branchorderapp://handover-complete?order_id=${orderId}&driver_name=${encodeURIComponent(driverName)}`;
+  // Show "Return to App" with deep link after upload
+  const showThankYouMessage = (signerName) => {
+    // Use the role in the return URL for flexibility (optional, can be omitted)
+    const appUrl = `branchorderapp://handover-complete?order_id=${orderId}&name=${encodeURIComponent(signerName)}&role=${encodeURIComponent(role)}`;
     document.getElementById("mainContainer").innerHTML = `
       <div style="text-align:center; padding: 40px;">
         <h2 style="color:#FFD700;">✅ Thank you!</h2>
