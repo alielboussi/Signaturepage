@@ -23,7 +23,7 @@ def calculate_total(items):
             price = float(item.get("price", 0))
             total += qty * price
         return total
-    except Exception as e:
+    except Exception:
         return 0.0
 
 def generate_pdf(order_id, driver_name, supervisor_name, branch_name, date_str, time_str, order_cost, item_summary, signature_img_path, role="Driver"):
@@ -97,12 +97,12 @@ def upload_pdf():
         order_cost = 0.00
 
         if order_id:
-            result = supabase.table("orders").select("*").eq("uuid", order_id).limit(1).execute()
+            # try uuid first, fallback to id for flexibility
+            result = supabase.table("orders").select("*").or_(f"uuid.eq.{order_id},id.eq.{order_id}").limit(1).execute()
             if result.data and len(result.data) > 0:
                 order = result.data[0]
                 branch_name = order.get("branch", "Unknown Branch")
                 try:
-                    # items may be array or JSON string
                     items_raw = order.get("items", [])
                     if isinstance(items_raw, str):
                         item_summary = json.loads(items_raw)
@@ -137,9 +137,9 @@ def upload_pdf():
         if not signature_file:
             return jsonify({"success": False, "message": "Missing signature file"}), 400
 
-        sig_temp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
-        signature_file.save(sig_temp.name)
-        sig_temp.close()
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as sig_temp:
+            signature_file.save(sig_temp.name)
+            sig_path = sig_temp.name
 
         pdf_path = generate_pdf(
             order_id=order_id,
@@ -150,12 +150,12 @@ def upload_pdf():
             time_str=time_str,
             order_cost=order_cost,
             item_summary=item_summary,
-            signature_img_path=sig_temp.name,
+            signature_img_path=sig_path,
             role=role
         )
 
         try:
-            os.remove(sig_temp.name)
+            os.remove(sig_path)
         except Exception:
             pass
 
@@ -182,7 +182,7 @@ def upload_pdf():
             "supervisor_name": supervisor_name,
             "status": "driver signed and order on the way"
         }
-        update_resp = supabase.table("orders").update(update_data).eq("uuid", order_id).execute()
+        update_resp = supabase.table("orders").update(update_data).or_(f"uuid.eq.{order_id},id.eq.{order_id}").execute()
         if hasattr(update_resp, "error") and update_resp.error:
             return jsonify({"success": False, "message": "Failed to update orders table: " + str(update_resp.error)}), 500
 
