@@ -15,6 +15,17 @@ SUPABASE_SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdX
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
+def calculate_total(items):
+    try:
+        total = 0.0
+        for item in items:
+            qty = int(item.get("quantity", 0))
+            price = float(item.get("price", 0))
+            total += qty * price
+        return total
+    except Exception as e:
+        return 0.0
+
 def generate_pdf(order_id, driver_name, supervisor_name, branch_name, date_str, time_str, order_cost, item_summary, signature_img_path, role="Driver"):
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as pdf_file:
         c = canvas.Canvas(pdf_file.name, pagesize=A4)
@@ -40,21 +51,27 @@ def generate_pdf(order_id, driver_name, supervisor_name, branch_name, date_str, 
         y -= 20
         c.drawString(50, y, f"Approved By: {supervisor_name}")
         y -= 20
-        c.drawString(50, y, f"Order Total: K{order_cost}")
+        c.drawString(50, y, f"Order Total: K{order_cost:,.2f}")
         y -= 25
 
         c.setFont("Helvetica-Bold", 12)
         c.drawString(50, y, "Items Summary:")
         y -= 18
         c.setFont("Helvetica", 12)
-        for item in item_summary:
-            name = item.get("name", "Item")
-            qty = item.get("quantity", "0")
-            c.drawString(60, y, f"- {name}: {qty}")
+        if not item_summary:
+            c.drawString(60, y, "- (No items)")
             y -= 16
-            if y < 120:
-                c.showPage()
-                y = height - 50
+        else:
+            for item in item_summary:
+                name = item.get("name", "Item")
+                qty = item.get("quantity", "0")
+                price = item.get("price", "0")
+                line = f"- {name}: {qty} × K{price} = K{float(qty)*float(price):,.2f}"
+                c.drawString(60, y, line)
+                y -= 16
+                if y < 120:
+                    c.showPage()
+                    y = height - 50
 
         y -= 15
         c.setFont("Helvetica-Bold", 12)
@@ -71,18 +88,45 @@ def upload_pdf():
         order_id = request.form.get("order_id") or request.form.get("order_uuid")
         driver_name = request.form.get("driver_name", "Driver")
         supervisor_name = request.form.get("supervisor_name", "Unknown Supervisor")
-        branch_name = request.form.get("branch_name", "Unknown Branch")
-        order_cost = request.form.get("order_cost", "0.00")
         role = request.form.get("role", "Driver")
-        item_summary_raw = request.form.get("item_summary", "[]")
 
-        if not order_id:
-            return jsonify({"success": False, "message": "Missing order_id"}), 400
+        # --- Fetch order from Supabase for all real info ---
+        order = None
+        branch_name = "Unknown Branch"
+        item_summary = []
+        order_cost = 0.00
 
-        try:
-            item_summary = json.loads(item_summary_raw)
-        except Exception:
-            item_summary = []
+        if order_id:
+            result = supabase.table("orders").select("*").eq("uuid", order_id).limit(1).execute()
+            if result.data and len(result.data) > 0:
+                order = result.data[0]
+                branch_name = order.get("branch", "Unknown Branch")
+                try:
+                    # items may be array or JSON string
+                    items_raw = order.get("items", [])
+                    if isinstance(items_raw, str):
+                        item_summary = json.loads(items_raw)
+                    else:
+                        item_summary = items_raw
+                except Exception:
+                    item_summary = []
+                order_cost = calculate_total(item_summary)
+
+        # If frontend sends new items or branch/cost, override:
+        branch_name = request.form.get("branch_name", branch_name)
+        item_summary_raw = request.form.get("item_summary")
+        order_cost_frontend = request.form.get("order_cost")
+        if item_summary_raw:
+            try:
+                item_summary = json.loads(item_summary_raw)
+                order_cost = calculate_total(item_summary)
+            except Exception:
+                pass
+        if order_cost_frontend:
+            try:
+                order_cost = float(order_cost_frontend)
+            except Exception:
+                pass
 
         now = datetime.now()
         date_str = now.strftime("%Y-%m-%d")
@@ -131,7 +175,6 @@ def upload_pdf():
         if not public_url:
             public_url = f"{SUPABASE_URL}/storage/v1/object/public/driverapproval/{filename}"
 
-        # 👇 **FINAL FIX: Update status to 'driver signed and order on the way'**
         update_data = {
             "driver_name": driver_name,
             "driver_signature_at": now_iso,
